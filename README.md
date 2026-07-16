@@ -33,6 +33,19 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000). A `data.sqlite` file is created automatically
 on first run.
 
+## Screenshots
+
+|  |  |
+|---|---|
+| ![Home — current conditions](docs/screenshots/home-desktop-1.png) | ![Home — hourly, 7-day, map](docs/screenshots/home-desktop-2.png) |
+| ![Search](docs/screenshots/search-desktop.png) | ![Saved Cities](docs/screenshots/saved-desktop.png) |
+| ![Radar](docs/screenshots/radar-desktop.png) | ![Settings](docs/screenshots/settings-desktop.png) |
+
+<p align="center">
+  <img src="docs/screenshots/home-mobile-1.png" width="260" alt="Home mobile — current conditions">
+  <img src="docs/screenshots/home-mobile-2.png" width="260" alt="Home mobile — details, hourly">
+</p>
+
 ## Screens
 
 - **Home** (`/`) — location hero with animated temperature, weather-condition-driven gradient
