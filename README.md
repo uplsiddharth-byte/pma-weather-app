@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Weather App — PM Accelerator Technical Assessment
 
-## Getting Started
+Built by **Siddharth Uppala** for the PM Accelerator AI Engineer Intern technical assessment (Full Stack: Assessment #1 + #2).
 
-First, run the development server:
+A weather app where users enter a location (city, zip, landmark, or their current GPS position)
+and get real-time current conditions, a 5-day forecast, and a map — plus a backend that persists
+location + date-range weather lookups with full CRUD and data export.
+
+## Tech stack
+
+- **Next.js 15 (App Router) + TypeScript + Tailwind CSS** — single project covers both the
+  frontend (React-based, no Python/Java) and the backend (Next.js API routes act as the RESTful
+  API layer).
+- **Open-Meteo** — free, keyless weather + geocoding API (current conditions, 5-day forecast,
+  historical/forecast ranges).
+- **Nominatim (OpenStreetMap)** — free, keyless reverse geocoding for "use my location".
+- **SQLite (better-sqlite3)** — zero-setup file-based persistence for the CRUD requirement.
+- **Leaflet + OpenStreetMap tiles** — map of the resolved location (bonus API integration, no key
+  needed).
+
+No API keys or `.env` setup required — everything above is free and keyless.
+
+## Getting started
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). A `data.sqlite` file is created automatically
+on first run.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Features
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Assessment #1 — Frontend
 
-## Learn More
+- Location search accepts city, zip/postal code, landmark, or coordinates (via Open-Meteo
+  geocoding), plus a "📍 My location" button using the browser Geolocation API + reverse
+  geocoding.
+- Current conditions: temperature, feels-like, humidity, wind, and a weather icon.
+- **5-day forecast** grid (`1.1`).
+- **Error handling** (`1.2`): invalid/not-found locations, and upstream API failures, both surface
+  a clear inline message instead of crashing.
+- Responsive layout (Tailwind flex/grid + breakpoints): stacks to a single column on mobile,
+  multi-column on desktop; the saved-searches table scrolls horizontally instead of breaking
+  layout on small screens.
+- Map of the resolved location (Leaflet/OpenStreetMap, bonus `2.2`-style integration).
 
-To learn more about Next.js, take a look at the following resources:
+### Assessment #2 — Backend
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **CRUD (`2.1`)** over a `searches` table (SQLite):
+  - `POST /api/searches` — create: takes a location + date range, validates the date range
+    (valid dates, start ≤ end, ≤92 days span), fuzzy-matches the location via geocoding, fetches
+    weather for the range, and stores it.
+  - `GET /api/searches` — read all saved searches (no row-level security, per the spec).
+  - `PUT /api/searches/:id` — update the date range on an existing record (re-validated,
+    re-fetches weather); location/coordinates are intentionally immutable on update — a new
+    location is a new search.
+  - `DELETE /api/searches/:id` — delete a record.
+- **Data export (`2.3`)**: `GET /api/searches/export?format=csv|json`.
+- Supporting endpoints: `GET /api/geocode?q=`, `GET /api/weather?lat=&lon=`,
+  `GET /api/reverse-geocode?lat=&lon=`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Project structure
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+src/lib/weather.ts        # Open-Meteo + Nominatim client (geocoding, current+forecast, date-range weather)
+src/lib/db.ts             # SQLite schema + CRUD queries
+src/app/api/**            # REST API routes
+src/components/Dashboard.tsx      # Search, current weather, 5-day forecast, map
+src/components/SearchManager.tsx  # CRUD UI for saved searches + export
+```
