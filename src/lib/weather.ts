@@ -1,4 +1,4 @@
-// Open-Meteo: free, keyless geocoding + weather API. https://open-meteo.com/
+// Open-Meteo: free, keyless geocoding + weather + air-quality API. https://open-meteo.com/
 // Nominatim (OSM): free, keyless reverse geocoding for "use my location".
 
 export type GeoResult = {
@@ -15,6 +15,18 @@ export type DailyForecastDay = {
   tempMax: number;
   tempMin: number;
   precipitation: number;
+  precipitationProbability?: number;
+  sunrise?: string;
+  sunset?: string;
+  uvIndexMax?: number;
+};
+
+export type HourlyForecastHour = {
+  time: string;
+  temperature: number;
+  weatherCode: number;
+  precipitationProbability: number;
+  isDay: boolean;
 };
 
 export type CurrentWeather = {
@@ -24,6 +36,16 @@ export type CurrentWeather = {
   windSpeed: number;
   weatherCode: number;
   time: string;
+  isDay: boolean;
+  pressure: number;
+  dewPoint: number;
+  visibility: number | null;
+};
+
+export type AirQuality = {
+  usAqi: number;
+  europeanAqi: number;
+  category: string;
 };
 
 // WMO weather interpretation codes -> human label + emoji icon
@@ -58,8 +80,49 @@ const WEATHER_CODES: Record<number, { label: string; icon: string }> = {
   99: { label: "Thunderstorm w/ heavy hail", icon: "⛈️" },
 };
 
-export function describeWeatherCode(code: number) {
-  return WEATHER_CODES[code] ?? { label: "Unknown", icon: "❓" };
+// Codes 0-2 have an obvious sun in their icon, which reads wrong after dark.
+const NIGHT_ICONS: Record<number, string> = {
+  0: "🌙",
+  1: "🌙",
+  2: "☁️",
+};
+
+export function describeWeatherCode(code: number, isDay = true) {
+  const entry = WEATHER_CODES[code] ?? { label: "Unknown", icon: "❓" };
+  if (!isDay && NIGHT_ICONS[code]) {
+    return { ...entry, icon: NIGHT_ICONS[code] };
+  }
+  return entry;
+}
+
+export type WeatherMood = "clear" | "cloudy" | "fog" | "rain" | "storm" | "snow";
+
+export function weatherMood(code: number): WeatherMood {
+  if (code === 0 || code === 1) return "clear";
+  if (code === 2 || code === 3) return "cloudy";
+  if (code === 45 || code === 48) return "fog";
+  if (code >= 51 && code <= 67) return "rain";
+  if (code >= 80 && code <= 82) return "rain";
+  if ((code >= 71 && code <= 77) || (code >= 85 && code <= 86)) return "snow";
+  if (code >= 95) return "storm";
+  return "cloudy";
+}
+
+// Maps a WMO weather code + day/night to a Tailwind gradient for the
+// animated hero background.
+export function weatherGradient(code: number, isDay = true): string {
+  const mood = weatherMood(code);
+  if (!isDay) {
+    if (mood === "clear") return "from-indigo-950 via-slate-900 to-black";
+    if (mood === "storm") return "from-slate-950 via-purple-950 to-black";
+    return "from-slate-900 via-slate-950 to-black";
+  }
+  if (mood === "clear") return "from-orange-400 via-rose-400 to-purple-500";
+  if (mood === "cloudy") return "from-slate-400 via-slate-500 to-slate-700";
+  if (mood === "fog") return "from-slate-300 via-slate-400 to-slate-600";
+  if (mood === "rain") return "from-blue-400 via-indigo-500 to-slate-700";
+  if (mood === "snow") return "from-sky-200 via-blue-300 to-indigo-400";
+  return "from-indigo-900 via-purple-900 to-slate-950";
 }
 
 export class WeatherApiError extends Error {}
@@ -121,13 +184,14 @@ export async function getCurrentAndForecast(lat: number, lon: number) {
   url.searchParams.set("longitude", String(lon));
   url.searchParams.set(
     "current",
-    "temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,weather_code"
+    "temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,weather_code,is_day,pressure_msl,dew_point_2m,visibility"
   );
+  url.searchParams.set("hourly", "temperature_2m,weather_code,precipitation_probability,is_day");
   url.searchParams.set(
     "daily",
-    "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum"
+    "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,sunrise,sunset,uv_index_max"
   );
-  url.searchParams.set("forecast_days", "5");
+  url.searchParams.set("forecast_days", "7");
   url.searchParams.set("timezone", "auto");
 
   const res = await fetch(url);
@@ -141,6 +205,10 @@ export async function getCurrentAndForecast(lat: number, lon: number) {
     windSpeed: data.current.wind_speed_10m,
     weatherCode: data.current.weather_code,
     time: data.current.time,
+    isDay: data.current.is_day === 1,
+    pressure: data.current.pressure_msl,
+    dewPoint: data.current.dew_point_2m,
+    visibility: typeof data.current.visibility === "number" ? data.current.visibility : null,
   };
 
   const forecast: DailyForecastDay[] = data.daily.time.map((date: string, i: number) => ({
@@ -149,9 +217,85 @@ export async function getCurrentAndForecast(lat: number, lon: number) {
     tempMax: data.daily.temperature_2m_max[i],
     tempMin: data.daily.temperature_2m_min[i],
     precipitation: data.daily.precipitation_sum[i],
+    precipitationProbability: data.daily.precipitation_probability_max?.[i],
+    sunrise: data.daily.sunrise?.[i],
+    sunset: data.daily.sunset?.[i],
+    uvIndexMax: data.daily.uv_index_max?.[i],
   }));
 
-  return { current, forecast };
+  const nowIndex = data.hourly.time.findIndex((t: string) => t >= data.current.time);
+  const startIndex = Math.max(nowIndex, 0);
+  const hourly: HourlyForecastHour[] = data.hourly.time
+    .slice(startIndex, startIndex + 24)
+    .map((time: string, i: number) => ({
+      time,
+      temperature: data.hourly.temperature_2m[startIndex + i],
+      weatherCode: data.hourly.weather_code[startIndex + i],
+      precipitationProbability: data.hourly.precipitation_probability[startIndex + i],
+      isDay: data.hourly.is_day[startIndex + i] === 1,
+    }));
+
+  return { current, forecast, hourly };
+}
+
+const AQI_CATEGORIES: [number, string][] = [
+  [50, "Good"],
+  [100, "Moderate"],
+  [150, "Unhealthy for Sensitive Groups"],
+  [200, "Unhealthy"],
+  [300, "Very Unhealthy"],
+  [Infinity, "Hazardous"],
+];
+
+export async function getAirQuality(lat: number, lon: number): Promise<AirQuality> {
+  const url = new URL("https://air-quality-api.open-meteo.com/v1/air-quality");
+  url.searchParams.set("latitude", String(lat));
+  url.searchParams.set("longitude", String(lon));
+  url.searchParams.set("current", "us_aqi,european_aqi");
+
+  const res = await fetch(url);
+  if (!res.ok) throw new WeatherApiError("Air quality service unavailable");
+  const data = await res.json();
+  const usAqi = data.current.us_aqi;
+  return {
+    usAqi,
+    europeanAqi: data.current.european_aqi,
+    category: AQI_CATEGORIES.find(([max]) => usAqi <= max)?.[1] ?? "Unknown",
+  };
+}
+
+// Pure astronomical calculation, no API needed. Returns 0=new moon,
+// 0.5=full moon, 1=next new moon.
+export function moonPhase(date: Date): { fraction: number; name: string; icon: string } {
+  const synodicMonth = 29.530588853;
+  const knownNewMoon = Date.UTC(2000, 0, 6, 18, 14);
+  const daysSince = (date.getTime() - knownNewMoon) / 86_400_000;
+  const fraction = ((daysSince % synodicMonth) + synodicMonth) % synodicMonth / synodicMonth;
+
+  const phases: [number, string, string][] = [
+    [0.03, "New Moon", "🌑"],
+    [0.22, "Waxing Crescent", "🌒"],
+    [0.28, "First Quarter", "🌓"],
+    [0.47, "Waxing Gibbous", "🌔"],
+    [0.53, "Full Moon", "🌕"],
+    [0.72, "Waning Gibbous", "🌖"],
+    [0.78, "Last Quarter", "🌗"],
+    [0.97, "Waning Crescent", "🌘"],
+    [1, "New Moon", "🌑"],
+  ];
+  const [, name, icon] = phases.find(([max]) => fraction <= max) ?? phases[phases.length - 1];
+  return { fraction, name, icon };
+}
+
+export type TemperatureUnit = "C" | "F";
+
+export function celsiusToFahrenheit(c: number): number {
+  return (c * 9) / 5 + 32;
+}
+
+export function formatTemperature(celsius: number, unit: TemperatureUnit): string {
+  const value = unit === "F" ? celsiusToFahrenheit(celsius) : celsius;
+  return `${Math.round(value)}°`;
 }
 
 // Backend CRUD requirement: weather for an arbitrary date range.

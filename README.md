@@ -11,9 +11,12 @@ location + date-range weather lookups with full CRUD and data export.
 - **Next.js 15 (App Router) + TypeScript + Tailwind CSS** — single project covers both the
   frontend (React-based, no Python/Java) and the backend (Next.js API routes act as the RESTful
   API layer).
-- **Open-Meteo** — free, keyless weather + geocoding API (current conditions, 5-day forecast,
-  historical/forecast ranges).
+- **Framer Motion + Lucide Icons** — page transitions, hover/press micro-interactions, animated
+  temperature counter, and iconography for the premium UI.
+- **Open-Meteo** — free, keyless weather + geocoding + air-quality API (current conditions, hourly
+  and 7-day forecast, UV/pressure/dew point/sunrise/sunset, historical/forecast date ranges).
 - **Nominatim (OpenStreetMap)** — free, keyless reverse geocoding for "use my location".
+- **RainViewer** — free, keyless precipitation radar tiles for the Radar screen.
 - **SQLite (better-sqlite3)** — zero-setup file-based persistence for the CRUD requirement.
 - **Leaflet + OpenStreetMap tiles** — map of the resolved location (bonus API integration, no key
   needed).
@@ -30,7 +33,20 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000). A `data.sqlite` file is created automatically
 on first run.
 
-## Features
+## Screens
+
+- **Home** (`/`) — location hero with animated temperature, weather-condition-driven gradient
+  background (shifts color and adds rain/snow/stars/lightning per condition and day/night), quick
+  stats (feels-like, humidity, wind, pressure, UV, visibility, sunrise/sunset, dew point, air
+  quality, moon phase), 24-hour scroller, expandable 7-day forecast, and a map.
+- **Search** (`/search`) — debounced geocode search, recent searches, popular cities, and GPS.
+- **Saved** (`/saved`) — the backend CRUD screen (see below), restyled as cards.
+- **Radar** (`/radar`) — Leaflet map with a live RainViewer precipitation overlay.
+- **Settings** (`/settings`) — °C/°F unit toggle, Light/Dark/Device theme, and the About/PM
+  Accelerator section.
+
+Desktop gets a persistent sidebar nav; mobile gets a floating frosted bottom nav. Selected
+location and unit preference persist across routes via localStorage-backed React context.
 
 ### Assessment #1 — Frontend
 
@@ -38,13 +54,13 @@ on first run.
   geocoding), plus a "📍 My location" button using the browser Geolocation API + reverse
   geocoding.
 - Current conditions: temperature, feels-like, humidity, wind, and a weather icon.
-- **5-day forecast** grid (`1.1`).
+- **5-day+ forecast** grid (`1.1`) — extended to a full 7 days with hourly detail too.
 - **Error handling** (`1.2`): invalid/not-found locations, and upstream API failures, both surface
   a clear inline message instead of crashing.
-- Responsive layout (Tailwind flex/grid + breakpoints): stacks to a single column on mobile,
-  multi-column on desktop; the saved-searches table scrolls horizontally instead of breaking
-  layout on small screens.
-- Map of the resolved location (Leaflet/OpenStreetMap, bonus `2.2`-style integration).
+- Responsive layout: sidebar + wide grid on desktop, single column with bottom nav on mobile;
+  rearranges rather than just scaling.
+- Map of the resolved location (Leaflet/OpenStreetMap, bonus `2.2`-style integration), plus a
+  dedicated Radar screen with a live RainViewer precipitation layer.
 
 ### Assessment #2 — Backend
 
@@ -64,9 +80,12 @@ on first run.
 ## Project structure
 
 ```
-src/lib/weather.ts        # Open-Meteo + Nominatim client (geocoding, current+forecast, date-range weather)
-src/lib/db.ts             # SQLite schema + CRUD queries
-src/app/api/**            # REST API routes
-src/components/Dashboard.tsx      # Search, current weather, 5-day forecast, map
-src/components/SearchManager.tsx  # CRUD UI for saved searches + export
+src/lib/weather.ts             # Open-Meteo + Nominatim client (geocoding, current/hourly/daily, air quality, moon phase)
+src/lib/db.ts                  # SQLite schema + CRUD queries
+src/lib/app-context.tsx        # Selected-location + unit preference, shared across routes via localStorage
+src/app/api/**                 # REST API routes
+src/app/{search,radar,saved,settings}/page.tsx  # Routes
+src/components/AppShell.tsx    # Responsive sidebar (desktop) / bottom nav (mobile)
+src/components/WeatherBackground.tsx  # Condition + day/night driven animated gradient
+src/components/screens/*.tsx   # Per-route screen components
 ```
