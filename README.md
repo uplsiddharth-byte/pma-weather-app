@@ -2,6 +2,13 @@
 
 Built by **Siddharth Uppala** for the PM Accelerator AI Engineer Intern technical assessment (Full Stack: Assessment #1 + #2).
 
+**Live demo:** [pma-weather-app-eight.vercel.app](https://pma-weather-app-eight.vercel.app)
+
+> Deployed on Vercel (serverless). The SQLite file backing Saved Cities lives in `/tmp`, so it
+> persists while an instance stays warm but resets on a cold start — expected behavior on this
+> hosting tier, not a bug. See [Getting started](#getting-started) to run it locally with normal
+> persistence.
+
 A weather app where users enter a location (city, zip, landmark, or their current GPS position)
 and get real-time current conditions, a 5-day forecast, and a map — plus a backend that persists
 location + date-range weather lookups with full CRUD and data export.
