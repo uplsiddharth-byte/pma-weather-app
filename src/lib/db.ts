@@ -1,7 +1,11 @@
 import Database from "better-sqlite3";
 import path from "path";
 
-const dbPath = path.join(process.cwd(), "data.sqlite");
+// Serverless platforms (Vercel etc.) ship a read-only filesystem outside
+// /tmp, so the DB file has to live there in production. /tmp is ephemeral
+// per-instance there, so writes aren't guaranteed to persist across cold
+// starts/deploys — acceptable for this assessment's demo purposes.
+const dbPath = process.env.VERCEL ? "/tmp/data.sqlite" : path.join(process.cwd(), "data.sqlite");
 const db = new Database(dbPath);
 
 db.pragma("journal_mode = WAL");
