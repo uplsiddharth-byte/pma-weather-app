@@ -33,6 +33,11 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000). A `data.sqlite` file is created automatically
 on first run.
 
+## Demo video
+
+[docs/demo/weather-app-demo.mp4](docs/demo/weather-app-demo.mp4) — ~55s walkthrough of every screen and the full
+Saved Cities CRUD flow (create/update/delete + export).
+
 ## Screenshots
 
 |  |  |
