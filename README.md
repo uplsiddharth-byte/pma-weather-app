@@ -1,4 +1,4 @@
-# Weather App — PM Accelerator Technical Assessment
+# Weather App — PM Accelerator 
 
 Built by **Siddharth Uppala** for the PM Accelerator AI Engineer Intern technical assessment (Full Stack: Assessment #1 + #2).
 
